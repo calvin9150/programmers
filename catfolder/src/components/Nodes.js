@@ -1,4 +1,4 @@
-function Nodes({ $app, initialState }) {
+function Nodes({ $app, initialState, onClick, onBackClick }) {
   this.state = initialState;
 
   this.$target = document.createElement("ul");
@@ -8,6 +8,8 @@ function Nodes({ $app, initialState }) {
     this.state = nextState;
     this.render();
   };
+
+  this.onBackClick = onBackClick;
 
   this.onClick = onClick;
 
@@ -38,6 +40,9 @@ function Nodes({ $app, initialState }) {
   this.$target.querySelectorAll(".Node").forEach(($node) => {
     $node.addEventListener("click", (e) => {
       const { nodeId } = e.target.dataset;
+      if (!nodeId) {
+        this.onBackClick();
+      }
       const selectedNode = this.state.nodes.find((node) => node.id === nodeId);
 
       if (selectedNode) {
