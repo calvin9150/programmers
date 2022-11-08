@@ -2,6 +2,9 @@ import Breadcrumb from "./Breadcrumb";
 import ImageView from "./ImageView";
 import Nodes from "./Nodes";
 import { request } from "./api";
+import Loading from "./Loading";
+
+const cache = {};
 
 function App($app) {
   this.state = {
@@ -9,6 +12,7 @@ function App($app) {
     nodes: [],
     depth: [],
     selectedFilePath: null,
+    isLoading: false,
   };
 
   this.setState = (nextState) => {
@@ -19,7 +23,10 @@ function App($app) {
       nodes: this.state.nodes,
     });
     imageView.setState(this.state.selectedFilePath);
+    loading.setState(this.state.nodes);
   };
+
+  const loading = new Loading(this.state.isLoading);
 
   const imageView = new ImageView({
     $app,
@@ -28,7 +35,30 @@ function App($app) {
 
   const breadcrumb = new Breadcrumb({
     $app,
-    initialState: new Nodes({}),
+    initialState: [],
+    onClick: (index) => {
+      if (index === nul) {
+        this.setState({
+          ...this.state,
+          depth: [],
+          nodes: cache.root,
+        });
+        return;
+      }
+
+      if (index === this.state.depth.length - 1) {
+        return;
+      }
+
+      const nextState = { ...this.state };
+      const nextDepth = this.state.depth.slice(0, index + 1);
+
+      this.setState({
+        ...nextState,
+        depth: nextDepth,
+        nodes: cache[nextDepth[nextDepth.lenght - 1].id],
+      });
+    },
   });
 
   const nodes = new Nodes({
@@ -38,10 +68,28 @@ function App($app) {
     onClick: async (node) => {
       try {
         if (node.type === "DIRECTORY") {
+          if (cache[node.id]) {
+            this.setState({
+              ...this.state,
+              depth: [...this.state.depth, node],
+              nodes: nextNodes,
+              isLoading: false,
+            });
+          } else {
+            const nextNodes = await request(node.id);
+            this.setState({
+              ...this.state,
+              depth: [...this.state.depth, node],
+              node: nextNodes,
+              isLoading: false,
+            });
+            cache[node.id] = nextNodes;
+          }
         } else if (node.type === "FILE") {
           this.setState({
             ...this.state,
             selectedFilePath: node.filePath,
+            isLoading: false,
           });
         }
       } catch (e) {
@@ -55,14 +103,17 @@ function App($app) {
         nextState.depth.pop();
 
         const prevNodeId =
-          nextState.depth.length === 0 ? null : nextState.depth[nextState.depth.length - 1].id;
+          nextState.depth.length === 0
+            ? null
+            : nextState.depth[nextState.depth.length - 1].id;
 
         if (prevNodeId === null) {
-          const rootNodes = await request();
+          // const rootNodes = await request();
+
           this.setState({
             ...nextState,
             isRoot: true,
-            nodes: rootNodes,
+            nodes: cache.rootNodes,
           });
         } else {
           const prevNodes = await request(prevNodeID);
@@ -78,6 +129,28 @@ function App($app) {
       }
     },
   });
+
+  const init = async () => {
+    this.setState({
+      ...this.state,
+      isLoading: true,
+    });
+
+    try {
+      const rootNodes = await request(
+        this.setState({
+          ...this.state,
+          isLoading: false,
+          isRoot: true,
+          nodes: rootNodes,
+        })
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  init();
 }
 
 export default App;
